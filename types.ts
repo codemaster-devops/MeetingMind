@@ -17,9 +17,22 @@ export enum AppState {
   PROCESSING = 'PROCESSING',
   COMPLETED = 'COMPLETED',
   ERROR = 'ERROR',
+  PRICING = 'PRICING',
 }
 
 export interface ProcessingError {
   title: string;
   message: string;
+}
+
+export interface UserProfile {
+  id: string;
+  is_pro: boolean;
+  stripe_customer_id?: string;
+}
+
+export interface UsageStats {
+  used: number;
+  limit: number;
+  isPro: boolean;
 }

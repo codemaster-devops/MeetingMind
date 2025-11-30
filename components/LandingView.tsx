@@ -1,20 +1,25 @@
 import React, { useCallback, useState } from 'react';
 import { UploadCloudIcon, FileAudioIcon, PenToolIcon } from './Icons';
+import { UsageStats } from '../types';
 
 interface LandingViewProps {
   onFileSelect: (file: File) => void;
   onTranscriptSubmit: (text: string) => void;
+  usageStats: UsageStats;
+  onUpgradeClick: () => void;
 }
 
-const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSubmit }) => {
+const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSubmit, usageStats, onUpgradeClick }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'transcript'>('upload');
   const [isDragging, setIsDragging] = useState(false);
   const [transcriptText, setTranscriptText] = useState('');
 
+  const isLimitReached = !usageStats.isPro && usageStats.used >= usageStats.limit;
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
-  }, []);
+    if (!isLimitReached) setIsDragging(true);
+  }, [isLimitReached]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -25,34 +30,34 @@ const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSub
     e.preventDefault();
     setIsDragging(false);
     
+    if (isLimitReached) return;
+
     if (activeTab === 'upload' && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       validateAndUpload(file);
     }
-  }, [activeTab, onFileSelect]);
+  }, [activeTab, onFileSelect, isLimitReached]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isLimitReached) return;
+
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       validateAndUpload(file);
-      // Reset the value so the same file can be selected again if needed
       e.target.value = '';
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, isLimitReached]);
 
   const validateAndUpload = (file: File) => {
-    // Limit to 10MB to ensure base64 inline data fits within Gemini API request limits (approx 20MB total payload)
     if (file.size > 10 * 1024 * 1024) { 
       alert("File is too large. Please upload a file smaller than 10MB.");
       return;
     }
     
-    // Check MIME type, falling back to extension if type is empty (common in some OS/Browsers)
     const validExtensions = ['.mp3', '.wav', '.m4a', '.mp4', '.aac', '.ogg', '.webm'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     const hasValidExtension = validExtensions.includes(ext);
 
-    // Some browsers don't detect m4a mime type correctly, so we check extension too
     if (file.type.startsWith('audio/') || file.type.startsWith('video/') || hasValidExtension) {
        onFileSelect(file);
     } else {
@@ -61,6 +66,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSub
   };
 
   const handleTextSubmit = () => {
+    if (isLimitReached) return;
     if (!transcriptText.trim()) {
       alert("Please enter a transcript first.");
       return;
@@ -77,12 +83,55 @@ const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSub
         <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
           Turn Meetings into <span className="text-indigo-600">Action</span>
         </h1>
-        <p className="text-lg text-slate-600">
+        <p className="text-lg text-slate-600 mb-6">
           Instantly generate a full transcript, structured summary, decisions, and action items.
         </p>
+
+        {/* Usage Bar */}
+        {!usageStats.isPro && (
+          <div className="max-w-xs mx-auto bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+             <div className="flex justify-between text-xs font-semibold text-slate-500 mb-2">
+                <span>Free Plan Usage</span>
+                <span className={isLimitReached ? "text-red-500" : "text-indigo-600"}>
+                    {usageStats.used} / {usageStats.limit} Meetings
+                </span>
+             </div>
+             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-2">
+                <div 
+                    className={`h-full rounded-full transition-all duration-500 ${isLimitReached ? 'bg-red-500' : 'bg-indigo-500'}`} 
+                    style={{ width: `${Math.min((usageStats.used / usageStats.limit) * 100, 100)}%` }}
+                ></div>
+             </div>
+             {isLimitReached ? (
+                 <button onClick={onUpgradeClick} className="text-xs text-indigo-600 font-bold hover:underline">
+                     Limit reached. Upgrade to Pro →
+                 </button>
+             ) : (
+                 <p className="text-xs text-slate-400">Resets next month</p>
+             )}
+          </div>
+        )}
       </div>
 
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative">
+        
+        {/* Upgrade Overlay if limit reached */}
+        {isLimitReached && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                    <span className="text-2xl">🔒</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Monthly Limit Reached</h3>
+                <p className="text-slate-600 mb-6">You've used your 3 free meetings for this month. Upgrade to Pro for unlimited access.</p>
+                <button 
+                    onClick={onUpgradeClick}
+                    className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform hover:scale-105"
+                >
+                    Upgrade to Unlimited
+                </button>
+            </div>
+        )}
+
         {/* Tab Navigation */}
         <div className="flex border-b border-slate-100">
           <button 
@@ -115,7 +164,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSub
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => document.getElementById('fileInput')?.click()}
+              onClick={() => !isLimitReached && document.getElementById('fileInput')?.click()}
             >
               <input 
                 type="file" 
@@ -123,6 +172,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSub
                 className="hidden" 
                 accept="audio/*,video/mp4,.m4a" 
                 onChange={handleFileInput} 
+                disabled={isLimitReached}
               />
               
               <div className="flex flex-col items-center justify-center space-y-4">
@@ -156,10 +206,11 @@ const LandingView: React.FC<LandingViewProps> = ({ onFileSelect, onTranscriptSub
                 placeholder="Paste your meeting transcript or notes here..."
                 value={transcriptText}
                 onChange={(e) => setTranscriptText(e.target.value)}
+                disabled={isLimitReached}
               />
               <button 
                 onClick={handleTextSubmit}
-                disabled={!transcriptText.trim()}
+                disabled={!transcriptText.trim() || isLimitReached}
                 className="w-full py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-md"
               >
                 Generate Notes

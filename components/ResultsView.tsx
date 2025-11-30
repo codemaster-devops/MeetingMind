@@ -1,11 +1,36 @@
 import React, { useState } from 'react';
 import { MeetingAnalysis, ActionItem } from '../types';
-import { CheckCircleIcon, CopyIcon, NotionIcon, SlackIcon } from './Icons';
+import { CheckCircleIcon, CopyIcon, NotionIcon, SlackIcon, UserIcon } from './Icons';
 
 interface ResultsViewProps {
   data: MeetingAnalysis;
   onReset: () => void;
 }
+
+const getAvatarColor = (name: string) => {
+  const colors = [
+    'bg-red-100 text-red-700 border-red-200',
+    'bg-orange-100 text-orange-700 border-orange-200',
+    'bg-amber-100 text-amber-700 border-amber-200',
+    'bg-green-100 text-green-700 border-green-200',
+    'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'bg-teal-100 text-teal-700 border-teal-200',
+    'bg-cyan-100 text-cyan-700 border-cyan-200',
+    'bg-sky-100 text-sky-700 border-sky-200',
+    'bg-blue-100 text-blue-700 border-blue-200',
+    'bg-indigo-100 text-indigo-700 border-indigo-200',
+    'bg-violet-100 text-violet-700 border-violet-200',
+    'bg-purple-100 text-purple-700 border-purple-200',
+    'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+    'bg-pink-100 text-pink-700 border-pink-200',
+    'bg-rose-100 text-rose-700 border-rose-200',
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
 
 const ResultsView: React.FC<ResultsViewProps> = ({ data, onReset }) => {
   const [activeTab, setActiveTab] = useState<'summary' | 'transcript'>('summary');
@@ -151,30 +176,47 @@ ${formattedActionItems}
                     <div className="p-0">
                         {data.action_items.length > 0 ? (
                             <div className="divide-y divide-slate-100">
-                                {data.action_items.map((item, i) => (
-                                    <div key={i} className="p-6 flex flex-col md:flex-row md:items-start gap-4 hover:bg-slate-50 transition-colors">
-                                        <div className="flex-1">
-                                            <p className="text-slate-800 font-medium">{item.description}</p>
-                                        </div>
-                                        <div className="flex gap-4 md:w-64 flex-shrink-0">
+                                {data.action_items.map((item, i) => {
+                                    const isUnassigned = !item.owner || item.owner.toLowerCase().includes('unassigned') || item.owner.toLowerCase().includes('tbd');
+                                    const initials = item.owner && !isUnassigned
+                                        ? item.owner.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+                                        : '';
+                                    
+                                    const avatarColor = isUnassigned ? 'bg-slate-100 border-slate-200 text-slate-400' : getAvatarColor(item.owner);
+
+                                    return (
+                                        <div key={i} className="p-6 flex flex-col md:flex-row md:items-start gap-4 border-l-4 border-transparent hover:border-indigo-500 hover:bg-slate-50 transition-all duration-200">
                                             <div className="flex-1">
-                                                <span className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Owner</span>
-                                                <div className="flex items-center gap-2">
-                                                     <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">
-                                                        {item.owner.charAt(0).toUpperCase()}
-                                                     </div>
-                                                     <span className="text-sm text-slate-700">{item.owner}</span>
+                                                <p className="text-slate-800 font-medium">{item.description}</p>
+                                            </div>
+                                            <div className="flex gap-4 md:w-64 flex-shrink-0">
+                                                <div className="flex-1">
+                                                    <span className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Owner</span>
+                                                    <div className="flex items-center gap-2">
+                                                         <div 
+                                                            className={`
+                                                                w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border 
+                                                                ${avatarColor}
+                                                            `}
+                                                            title={item.owner}
+                                                         >
+                                                            {isUnassigned ? <UserIcon className="w-4 h-4" /> : initials}
+                                                         </div>
+                                                         <span className={`text-sm ${isUnassigned ? 'text-slate-400 italic' : 'text-slate-700 font-medium'}`}>
+                                                            {item.owner}
+                                                         </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <span className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Due</span>
+                                                    <span className={`text-sm font-medium ${!item.due_date || item.due_date === 'TBD' ? 'text-slate-400' : 'text-slate-700'}`}>
+                                                        {item.due_date || 'TBD'}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            <div className="flex-1">
-                                                <span className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Due</span>
-                                                <span className={`text-sm font-medium ${!item.due_date || item.due_date === 'TBD' ? 'text-slate-400' : 'text-slate-700'}`}>
-                                                    {item.due_date || 'TBD'}
-                                                </span>
-                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
                              <div className="p-6">
