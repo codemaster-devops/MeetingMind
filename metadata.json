@@ -1,0 +1,5 @@
+{
+  "name": "Copy of MeetingMind AI",
+  "description": "Upload meeting recordings to instantly generate full transcripts, structured summaries, decisions, and action items using Gemini 2.5 Flash.",
+  "requestFramePermissions": []
+}
